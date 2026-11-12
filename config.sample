@@ -1,6 +1,6 @@
 # wpsite config — plain bash, sourced on every run.
 
-SITES_DIR="$HOME/Sites"        # folder you ran `valet park` in
+SITES_DIR="$HOME/Sites"        # where site folders are created (parked or not — see VALET_LINK)
 TLD=""                         # leave empty to auto-detect from `valet tld`
 
 DB_USER="root"
@@ -16,6 +16,7 @@ ADMIN_PASS="password"
 ADMIN_EMAIL="admin@example.test"
 
 SECURE=0                       # 1 = https by default
+VALET_LINK="auto"              # auto = `valet link` each site unless SITES_DIR is parked; 1 = always; 0 = never
 OPEN_BROWSER=1
 REMOVE_DEFAULTS=1
 WP_DEBUG=1

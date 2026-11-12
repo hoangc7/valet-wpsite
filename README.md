@@ -65,8 +65,9 @@ Quick setup on macOS with Homebrew:
 brew install php wp-cli composer
 composer global require laravel/valet
 valet install
-mkdir -p ~/Sites && cd ~/Sites && valet park
 ```
+
+You don't need to `valet park` anything. wpsite links each site it creates (`valet link`). If you'd rather park your sites folder instead, see `VALET_LINK` under [Configuration](#configuration).
 
 Then set up a database server, as described below.
 
@@ -142,7 +143,8 @@ git -C ~/.valet-wpsite pull
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SITES_DIR` | `$HOME/Sites` | Folder you ran `valet park` in. Every site is a sub-folder. |
+| `SITES_DIR` | `$HOME/Sites` | Where site folders are created (created if missing). Every site is a sub-folder. |
+| `VALET_LINK` | `auto` | How Valet serves new sites. `auto`: `valet link` each site, unless `SITES_DIR` is already parked. `1`: always link. `0`: never link (you serve the folder yourself). |
 | `TLD` | *(auto)* | Site domain suffix. Empty = read from `valet tld`, falling back to `test`. |
 | `DB_USER` | `root` | MySQL user. |
 | `DB_PASS` | *(empty)* | MySQL password. |
@@ -227,6 +229,7 @@ Site names use lowercase letters, digits and hyphens (`my-shop`, `test2`). Run w
 What happens, in order:
 
 1. Validate the name; refuse if the folder or database already exists.
+   (Steps 2–8 build the site; step 9 makes Valet serve it.)
 2. Download WordPress and write `wp-config.php`.
 3. Create the database and install WordPress (or a multisite network).
 4. Set `/%postname%/` permalinks and discourage search engines.
@@ -234,7 +237,7 @@ What happens, in order:
 6. Multisite only: create the subsites.
 7. Remove default content (if `REMOVE_DEFAULTS=1`).
 8. Import demo data (if requested).
-9. Isolate PHP and secure with HTTPS (if requested); install the multisite driver if needed.
+9. `valet link` the site (unless `SITES_DIR` is parked), then isolate PHP and secure with HTTPS (if requested); install the multisite driver if needed.
 10. Print the URLs and credentials, open wp-admin.
 
 If any step before demo import fails, the site is rolled back completely. A failed demo import keeps the site and prints the command to retry.
@@ -258,7 +261,7 @@ wpsite delete <name> [-y]
 Shows what will be removed and asks for confirmation (`-y` skips it). Then:
 
 1. Removes the HTTPS certificate if the site is secured.
-2. Removes the PHP isolation and any Valet link.
+2. Removes the PHP isolation and the Valet link.
 3. Drops the database.
 4. Deletes the site folder. Symlinked plugins/themes are removed as links only. Your source folders are untouched.
 
@@ -437,7 +440,10 @@ MYSQL_BIN_DIR="/opt/homebrew/opt/mysql@8.4/bin"
 MySQL isn't running or the credentials are wrong. Run `brew services start mysql`, then check `DB_USER` / `DB_PASS` / `DB_HOST`. Try `127.0.0.1` vs `localhost`.
 
 **Site shows "404 - Not Found" or doesn't resolve.**
-`SITES_DIR` must be a folder you ran `valet park` in. Check with `valet paths`. Confirm the TLD with `valet tld`.
+Valet isn't serving the folder. With the default `VALET_LINK=auto`, wpsite links each site, so check `valet links` lists it. If it doesn't (for example, a site created with version 1.1.2 or older, which only worked with parked folders), link it yourself: `cd ~/Sites/<name> && valet link <name>`. If you set `VALET_LINK=0`, `SITES_DIR` must be parked (`valet paths`). Confirm the TLD with `valet tld`.
+
+**`line …: db…: unbound variable` on macOS.**
+Fixed in 1.1.3. macOS's built-in bash 3.2 read the `…` after a variable name as part of the name. Update with `git -C ~/.valet-wpsite pull`.
 
 **`--php=8.x` fails.**
 Install that version first: `brew install php@8.2`.

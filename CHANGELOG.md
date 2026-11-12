@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.3 — 2026-11-12
+
+- Sites no longer need a parked folder: wpsite runs `valet link` for each new site unless `SITES_DIR` is parked (`VALET_LINK=auto|1|0`). `delete` unlinks it.
+- `SITES_DIR` is created if it doesn't exist.
+- Fix for macOS's bash 3.2: `delete` failed with `db…: unbound variable` (also affected `--php` and multisite subsite messages).
+- Fix for macOS's bash 3.2: demo import with images and subdirectory multisite could fail with "unbound variable" on an empty array.
+
 ## 1.1.2 — 2026-11-12
 
 - Accept MariaDB's own client names (`mariadb` + `mariadb-check`), used by WP-CLI 2.12+, not only `mysql` + `mysqlcheck`.
