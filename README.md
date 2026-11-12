@@ -56,7 +56,7 @@ Inspired by [ValetPress](https://github.com/sdenike/valetpress) by Shelby DeNike
 | --- | --- |
 | [Laravel Valet](https://laravel.com/docs/valet) | macOS. [Valet Linux](https://cpriego.github.io/valet-linux/) also works. Without Valet, wpsite still builds the site; you just serve the folder yourself. |
 | [WP-CLI](https://wp-cli.org/#installing) | `wp` must be on your `PATH`. |
-| MySQL or MariaDB | Running, with a user that can create and drop databases. |
+| MySQL or MariaDB | Running, with a user that can create and drop databases. The `mysql` and `mysqlcheck` **client** commands are needed too (WP-CLI calls them). wpsite finds them in common keg-only Homebrew, DBngin and MySQL-installer locations; see [Troubleshooting](#troubleshooting). |
 | `curl`, `bash` 3.2+ | Preinstalled on macOS and Linux. |
 
 Quick setup on macOS with Homebrew:
@@ -111,6 +111,7 @@ git -C ~/.valet-wpsite pull
 | `DB_PASS` | *(empty)* | MySQL password. |
 | `DB_HOST` | `127.0.0.1` | MySQL host. |
 | `DB_PREFIX` | `wp_` | Database name prefix. Site `my-shop` → database `wp_my_shop`. |
+| `MYSQL_BIN_DIR` | *(auto)* | Folder containing `mysql` and `mysqlcheck`, only needed if they aren't on `PATH` and aren't auto-detected. |
 | `ADMIN_USER` | `admin` | WordPress admin username. |
 | `ADMIN_PASS` | `password` | WordPress admin password. |
 | `ADMIN_EMAIL` | `admin@example.test` | WordPress admin email. |
@@ -373,6 +374,24 @@ bash -x wpsite create debug-site
 ```
 
 ## Troubleshooting
+
+**`env: illegal option -- n` (or `env: 'mysql': No such file or directory`) at "Creating database".**
+The MySQL server may be running fine, but its `mysql` client command isn't on your `PATH`. WP-CLI looks it up with `which mysql`, and when that fails it runs `/usr/bin/env --no-defaults …`, which macOS's `env` rejects. This is common with keg-only Homebrew formulas (`mysql@8.0`, `mysql@8.4`, `mysql-client`), DBngin and the official MySQL installer.
+
+wpsite checks the usual locations automatically (`/opt/homebrew/opt/mysql*/bin`, `/usr/local/opt/mysql*/bin`, `/usr/local/mysql/bin`, DBngin, MAMP) and prints `Using MySQL client from …` when it finds one. If it still can't find one, pick one fix:
+
+```bash
+which mysql mysqlcheck                       # should print two paths
+brew link --force mysql@8.4                  # Homebrew versioned formula
+brew install mysql-client                    # client only, if the server comes from elsewhere
+echo 'export PATH="/opt/homebrew/opt/mysql@8.4/bin:$PATH"' >> ~/.zshrc   # or put it on PATH yourself
+```
+
+Or point wpsite at it in `wpsite config`:
+
+```bash
+MYSQL_BIN_DIR="/opt/homebrew/opt/mysql@8.4/bin"
+```
 
 **`Error establishing a database connection` / `Can't connect to server`.**
 MySQL isn't running or the credentials are wrong. Run `brew services start mysql`, then check `DB_USER` / `DB_PASS` / `DB_HOST`. Try `127.0.0.1` vs `localhost`.

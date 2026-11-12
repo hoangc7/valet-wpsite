@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — 2026-11-12
+
+- Fix: `create` failing with `env: illegal option -- n` when the `mysql` client isn't on `PATH`. wpsite now finds it in common Homebrew (keg-only), DBngin, MAMP and MySQL-installer locations, or uses `MYSQL_BIN_DIR`.
+- Fail early with a clear fix-it message before downloading WordPress if no MySQL client is found.
+
 ## 1.1.0 — 2026-11-12
 
 - Multisite: `create --multisite[=subdomain]` builds a subdirectory or subdomain network.

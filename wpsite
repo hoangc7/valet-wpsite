@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wpsite"
 CONFIG_FILE="$CONFIG_DIR/config"
 MARKER=".wpsite"   # every site this script creates gets this file; delete refuses folders without it
@@ -44,6 +44,7 @@ LINK_THEMES=""                   # space-separated local theme dirs to SYMLINK i
 WP_DEBUG=1
 DEFAULT_DEMO=""                  # demo data for every new site: unittest, woo, all (or empty)
 DEMO_IMAGES=1                    # 0 = skip image attachments (much faster import)
+MYSQL_BIN_DIR=""                 # folder with mysql/mysqlcheck if they aren't on PATH (auto-detected)
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wpsite"
 MULTISITE_SITES=2                # subsites created with --multisite (number or "a,b,c"; 0 = none)
 MULTISITE_DRIVER_AUTOINSTALL=1   # install the Valet driver needed for subdirectory multisite
@@ -70,8 +71,41 @@ die()  { echo "${c_red}✗ $*${c_0}" >&2; exit 1; }
 has() { command -v "$1" >/dev/null 2>&1; }
 
 require() {
-  has wp    || die "WP-CLI not found. Install: https://wp-cli.org/#installing"
-  has mysql || warn "mysql client not found — WP-CLI's db commands may still work, continuing."
+  has wp || die "WP-CLI not found. Install: https://wp-cli.org/#installing"
+  ensure_mysql_client
+}
+
+# WP-CLI's db commands shell out to `mysql` / `mysqlcheck` found on PATH. If they're
+# missing it runs `/usr/bin/env --no-defaults …` and fails with "env: illegal option -- n".
+# Keg-only Homebrew installs, DBngin and the official installer don't put them on PATH,
+# so look in the usual places and add the first match for this run.
+ensure_mysql_client() {
+  if [[ -n "$MYSQL_BIN_DIR" ]]; then
+    [[ -x "${MYSQL_BIN_DIR/#\~/$HOME}/mysql" ]] || die "MYSQL_BIN_DIR is set but has no mysql binary: $MYSQL_BIN_DIR"
+    PATH="${MYSQL_BIN_DIR/#\~/$HOME}:$PATH"; export PATH
+  fi
+  has mysql && has mysqlcheck && return 0
+
+  local d
+  for d in \
+    /opt/homebrew/opt/mysql/bin /opt/homebrew/opt/mysql@*/bin /opt/homebrew/opt/mysql-client/bin \
+    /opt/homebrew/opt/mysql-client@*/bin /opt/homebrew/opt/mariadb/bin /opt/homebrew/opt/mariadb@*/bin \
+    /usr/local/opt/mysql/bin /usr/local/opt/mysql@*/bin /usr/local/opt/mysql-client/bin \
+    /usr/local/opt/mysql-client@*/bin /usr/local/opt/mariadb/bin /usr/local/opt/mariadb@*/bin \
+    /usr/local/mysql/bin /Users/Shared/DBngin/mysql/*/bin /Users/Shared/DBngin/mariadb/*/bin \
+    "$HOME"/Library/Application\ Support/Herd/bin /Applications/MAMP/Library/bin; do
+    if [[ -x "$d/mysql" && -x "$d/mysqlcheck" ]]; then
+      PATH="$d:$PATH"; export PATH
+      info "Using MySQL client from $d ${c_dim}(set MYSQL_BIN_DIR to choose another)${c_0}"
+      return 0
+    fi
+  done
+
+  die "MySQL client ('mysql' and 'mysqlcheck') not found on PATH — WP-CLI needs it to create databases.
+  Fix one of:
+    • Homebrew:  brew link --force mysql@8.4      (or: brew install mysql-client)
+    • or add its bin folder to PATH in ~/.zshrc
+    • or set MYSQL_BIN_DIR in $CONFIG_FILE, e.g. MYSQL_BIN_DIR=\"/opt/homebrew/opt/mysql@8.4/bin\""
 }
 
 detect_tld() {
@@ -562,6 +596,7 @@ cmd_delete() {
   fi
 
   info "Dropping database $db…"
+  if has wp; then ensure_mysql_client; fi
   if has wp && [[ -f "$SITE_DIR/wp-config.php" ]]; then
     wp --path="$SITE_DIR" db drop --yes --quiet 2>/dev/null || warn "Could not drop $db (already gone?)"
   elif has mysql; then
@@ -611,6 +646,9 @@ DB_USER="root"
 DB_PASS=""
 DB_HOST="127.0.0.1"
 DB_PREFIX="wp_"
+# folder containing the mysql client, only if it isn't on PATH (usually auto-detected)
+# e.g. MYSQL_BIN_DIR="/opt/homebrew/opt/mysql@8.4/bin"
+MYSQL_BIN_DIR=""
 
 ADMIN_USER="admin"
 ADMIN_PASS="password"

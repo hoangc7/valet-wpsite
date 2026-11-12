@@ -7,6 +7,9 @@ DB_USER="root"
 DB_PASS=""
 DB_HOST="127.0.0.1"
 DB_PREFIX="wp_"
+# folder containing the mysql client, only if it isn't on PATH (usually auto-detected)
+# e.g. MYSQL_BIN_DIR="/opt/homebrew/opt/mysql@8.4/bin"
+MYSQL_BIN_DIR=""
 
 ADMIN_USER="admin"
 ADMIN_PASS="password"
