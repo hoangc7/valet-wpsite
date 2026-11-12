@@ -1,0 +1,33 @@
+# wpsite config — plain bash, sourced on every run.
+
+SITES_DIR="$HOME/Sites"        # folder you ran `valet park` in
+TLD=""                         # leave empty to auto-detect from `valet tld`
+
+DB_USER="root"
+DB_PASS=""
+DB_HOST="127.0.0.1"
+DB_PREFIX="wp_"
+
+ADMIN_USER="admin"
+ADMIN_PASS="password"
+ADMIN_EMAIL="admin@example.test"
+
+SECURE=0                       # 1 = https by default
+OPEN_BROWSER=1
+REMOVE_DEFAULTS=1
+WP_DEBUG=1
+
+# wp.org plugin slugs installed on every site
+DEFAULT_PLUGINS="query-monitor"
+
+# extra plugins only for `--woo` sites
+WOO_PLUGINS=""
+
+# demo data imported into every new site: "", "unittest", "woo" or "all"
+DEFAULT_DEMO=""
+DEMO_IMAGES=1                  # 0 = skip demo images (faster, works offline)
+
+# your local plugin/theme source folders, symlinked (not copied) into every site
+# e.g. LINK_PLUGINS="$HOME/Code/my-plugin $HOME/Code/another-plugin"
+LINK_PLUGINS=""
+LINK_THEMES=""
