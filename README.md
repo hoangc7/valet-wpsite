@@ -25,6 +25,7 @@ Inspired by [ValetPress](https://github.com/sdenike/valetpress) by Shelby DeNike
   - [open](#open)
   - [config](#config)
 - [Demo data](#demo-data)
+- [Multisite](#multisite)
 - [Developing plugins and themes](#developing-plugins-and-themes)
 - [What a new site looks like](#what-a-new-site-looks-like)
 - [Safety](#safety)
@@ -42,6 +43,7 @@ Inspired by [ValetPress](https://github.com/sdenike/valetpress) by Shelby DeNike
 - **WooCommerce ready:** `--woo` installs WooCommerce and skips the onboarding wizard and "coming soon" mode.
 - **Demo data:** the WordPress Theme Unit Test data and/or WooCommerce sample products, with images or without.
 - **Plugin/theme development:** your local source folders are symlinked (not copied) into every new site, so one checkout is tested across many sites.
+- **Multisite:** `--multisite` builds a subdirectory or subdomain network with test subsites, and sets up the Valet driver it needs.
 - **Per-site PHP:** `--php=8.2` runs `valet isolate` for that site only.
 - **HTTPS:** `--secure` runs `valet secure`; delete removes the certificate.
 - **Safe delete:** only removes sites wpsite created, and never touches your symlinked source folders.
@@ -120,6 +122,8 @@ git -C ~/.valet-wpsite pull
 | `WOO_PLUGINS` | *(empty)* | Extra plugins installed only on WooCommerce sites. |
 | `DEFAULT_DEMO` | *(empty)* | Demo data for every new site: `unittest`, `woo` or `all`. |
 | `DEMO_IMAGES` | `1` | `0` = skip demo images by default. |
+| `MULTISITE_SITES` | `2` | Subsites created with `--multisite`: a number (`site1`, `site2`…) or names (`"shop,blog"`). `0` = none. |
+| `MULTISITE_DRIVER_AUTOINSTALL` | `1` | Install the Valet driver that subdirectory multisite needs, if it's missing. `0` = only warn. |
 | `LINK_PLUGINS` | *(empty)* | Space-separated local plugin folders symlinked into every site. |
 | `LINK_THEMES` | *(empty)* | Space-separated local theme folders symlinked into every site. |
 
@@ -130,6 +134,8 @@ Advanced (rarely needed):
 | `CACHE_DIR` | `~/.cache/wpsite` | Where downloaded demo files are cached. |
 | `UNITTEST_XML_URL` | WPTT theme-unit-test on GitHub | Source of the Theme Unit Test XML. |
 | `WOO_XML_URL` | WooCommerce repo on GitHub | Fallback source of the WooCommerce sample XML. |
+| `MULTISITE_DRIVER_URL` | [hoangc7/WordPressMultisiteSubdirectoryValetDriver](https://github.com/hoangc7/WordPressMultisiteSubdirectoryValetDriver) | Where the subdirectory multisite driver is downloaded from. |
+| `VALET_HOME` | `~/.config/valet` | Valet's config folder (the driver goes into `Drivers/` inside it). |
 
 Example config for plugin development:
 
@@ -171,6 +177,8 @@ Site names use lowercase letters, digits and hyphens (`my-shop`, `test2`). Run w
 | `--demo=<type>` | Import demo data: `unittest`, `woo`, `all`, or a comma list like `unittest,woo`. `woo` implies `--woo`. `--demo` alone = `all`. |
 | `--no-demo` | Ignore `DEFAULT_DEMO` for this site. |
 | `--no-images` | Skip demo images (much faster, works offline). |
+| `--multisite[=subdomain]` | Create a WordPress multisite network. Default is subdirectory (`site.test/sub/`); `=subdomain` gives `sub.site.test`. See [Multisite](#multisite). |
+| `--sites=<n\|a,b>` | Subsites to create with `--multisite`: a count (`--sites=3`) or names (`--sites=shop,blog`). Overrides `MULTISITE_SITES`. |
 | `--theme=<x>` | Install and activate a theme. `x` can be a wordpress.org slug, a `.zip` path/URL, or a local folder (symlinked). |
 | `--plugins="a b c"` | Extra wordpress.org plugins to install and activate. |
 | `--php=<version>` | Run this site on a specific PHP version (`valet isolate php@8.2`). The version must be installed via Homebrew. |
@@ -182,21 +190,24 @@ What happens, in order:
 
 1. Validate the name; refuse if the folder or database already exists.
 2. Download WordPress and write `wp-config.php`.
-3. Create the database and install WordPress.
+3. Create the database and install WordPress (or a multisite network).
 4. Set `/%postname%/` permalinks and discourage search engines.
 5. Install WooCommerce, plugins, linked plugins/themes and the chosen theme.
-6. Remove default content (if `REMOVE_DEFAULTS=1`).
-7. Import demo data (if requested).
-8. Isolate PHP and secure with HTTPS (if requested).
-9. Print the URL and credentials, open wp-admin.
+6. Multisite only: create the subsites.
+7. Remove default content (if `REMOVE_DEFAULTS=1`).
+8. Import demo data (if requested).
+9. Isolate PHP and secure with HTTPS (if requested); install the multisite driver if needed.
+10. Print the URLs and credentials, open wp-admin.
 
 If any step before demo import fails, the site is rolled back completely. A failed demo import keeps the site and prints the command to retry.
 
 ### demo
 
 ```bash
-wpsite demo <name> <unittest|woo|all> [--no-images]
+wpsite demo <name> <unittest|woo|all> [--no-images] [--url=<subsite>]
 ```
+
+`--url` targets one subsite of a multisite network. It accepts the subsite name (`shop`), its domain (`shop.network.test`) or its full URL. Without it, data goes into the main site.
 
 Imports demo data into an existing site (it doesn't need to have been created by wpsite, it just needs a `wp-config.php`). WooCommerce is installed or activated automatically for `woo`. See [Demo data](#demo-data).
 
@@ -217,7 +228,7 @@ Run without a name to pick from the list.
 
 ### list
 
-Lists every site in `SITES_DIR` created by wpsite, with its URL (`https://` if secured).
+Lists every site in `SITES_DIR` created by wpsite, with its URL (`https://` if secured) and whether it's a multisite network.
 
 ### open
 
@@ -255,6 +266,45 @@ How it works:
 
 Re-running an import on the same site is safe: the importer skips posts that already exist, so content isn't duplicated.
 
+## Multisite
+
+```bash
+wpsite create network --multisite                         # subdirectory: network.test/site1/, network.test/site2/
+wpsite create network --multisite=subdomain --sites=shop,blog   # subdomain: shop.network.test, blog.network.test
+wpsite create network --multisite --sites=0               # just the network, no subsites
+```
+
+What you get:
+
+- A network installed with `wp core multisite-install`, so `MULTISITE`, `SUBDOMAIN_INSTALL` and related constants are written to `wp-config.php`.
+- Subsites from `--sites` (default `MULTISITE_SITES=2`: `site1`, `site2`), each with the main site's theme, pretty permalinks, search engines discouraged, and default content removed.
+- Plugins (`--plugins`, `DEFAULT_PLUGINS`, `LINK_PLUGINS`, WooCommerce) are **network-activated**. The theme is network-enabled and activated on every subsite.
+- `--secure` covers the whole network. Valet's certificate includes `*.network.test`, and subsite URLs are switched to `https://`.
+- The summary prints the Network Admin URL and every subsite URL. `wpsite list` marks the site as `[multisite: subdirectory]` or `[multisite: subdomain]`.
+
+**Subdomain vs subdirectory on Valet**
+
+| | Subdomain | Subdirectory |
+| --- | --- | --- |
+| URLs | `shop.network.test` | `network.test/shop/` |
+| Valet setup | None. Valet already routes `*.network.test` to the `network` folder. | Needs a custom Valet driver (below). |
+| HTTPS | Covered by one `valet secure`. | Covered by one `valet secure`. |
+| Main site permalinks | `/%postname%/` | `/blog/%postname%/`. WordPress adds `/blog/` on subdirectory networks so main-site posts can't clash with subsite paths. |
+
+**The subdirectory driver.** Valet's built-in WordPress driver doesn't understand subdirectory multisite paths, so `/site1/wp-admin/` and subsite assets would break. When you create a subdirectory network, wpsite checks for `WordPressMultisiteSubdirectoryValetDriver.php` in `~/.config/valet/Drivers/` and downloads it if it's missing (from `MULTISITE_DRIVER_URL`). This happens once and is shared by all sites. It only changes behaviour for sites whose `wp-config.php` defines `MULTISITE` as true; single sites are served exactly as before. Set `MULTISITE_DRIVER_AUTOINSTALL=0` to install it yourself.
+
+> The driver uses the Valet 4 driver format. On Valet Linux or older Valet versions, install a matching driver manually.
+
+**Demo data on a network:**
+
+```bash
+wpsite create network --multisite --sites=shop,blog --demo=unittest   # demo goes into the main site
+wpsite demo network woo --url=shop                                     # WooCommerce products on the shop subsite
+wpsite demo network unittest --url=blog
+```
+
+With `--url`, WooCommerce is activated only on that subsite (unless it's already network-active).
+
 ## Developing plugins and themes
 
 Point `LINK_PLUGINS` / `LINK_THEMES` at your working copies:
@@ -281,7 +331,7 @@ wpsite create test-theme --theme=~/Code/my-theme --demo=unittest
 - Pretty permalinks (`/%postname%/`), search engines discouraged.
 - Latest bundled default theme active, other Twenty* themes removed.
 - No Hello Dolly, no Akismet, no "Hello world!" post or "Sample Page".
-- A `.wpsite` marker file in the site root (see [Safety](#safety)).
+- A `.wpsite` marker file in the site root (see [Safety](#safety)). It also records whether the site is a multisite network.
 
 ## Safety
 
@@ -304,6 +354,13 @@ wpsite create pay --demo=woo --secure
 
 # Theme review setup
 wpsite create review --demo=unittest --plugins="theme-check query-monitor"
+
+# Multisite network for testing a plugin per-site vs network-wide
+wpsite create network --multisite --sites=3 --plugins="query-monitor"
+
+# WooCommerce on one subsite of a subdomain network
+wpsite create stores --multisite=subdomain --sites=us,eu --secure
+wpsite demo stores woo --url=us
 
 # Throwaway site, no browser, delete when done
 wpsite create tmp --no-open && wpsite delete tmp -y
@@ -338,6 +395,15 @@ Use `wpsite demo <site> woo`, which creates the global attributes first (see [De
 **"wasn't created by wpsite (no .wpsite file). Refusing to delete."**
 The folder wasn't made by wpsite. If you're sure, add the marker (`touch ~/Sites/name/.wpsite`) and run delete again, or remove it by hand.
 
+**Subdirectory multisite: subsites or `/site1/wp-admin/` return 404 or show the main site.**
+The multisite driver isn't installed. Check that `~/.config/valet/Drivers/WordPressMultisiteSubdirectoryValetDriver.php` exists; if not, download it from `MULTISITE_DRIVER_URL`. Also confirm `wp-config.php` contains `define( 'MULTISITE', true );`.
+
+**Subdomain multisite: `shop.network.test` doesn't resolve.**
+Check that Valet's DNS is running (`valet restart`) and that `ping shop.network.test` resolves to `127.0.0.1`.
+
+**"No subsite matching …" from `wpsite demo --url`.**
+The error lists the network's subsite URLs; use one of those names.
+
 **Running as root (Docker/CI).**
 Export `WP_CLI_ALLOW_ROOT=1`.
 
@@ -365,6 +431,7 @@ Also built on:
 - [Theme Unit Test data](https://github.com/WPTT/theme-unit-test) by the WordPress Themes Team
 - [WooCommerce sample data](https://github.com/woocommerce/woocommerce/tree/trunk/plugins/woocommerce/sample-data)
 - [WordPress Importer](https://github.com/WordPress/wordpress-importer)
+- [WordPress Multisite Subdirectory Valet Driver](https://github.com/Objectivco/WordPressMultisiteSubdirectoryValetDriver) by Objectiv, used for subdirectory networks ([fork used by default](https://github.com/hoangc7/WordPressMultisiteSubdirectoryValetDriver))
 
 ## License
 

@@ -23,6 +23,11 @@ DEFAULT_PLUGINS="query-monitor"
 # extra plugins only for `--woo` sites
 WOO_PLUGINS=""
 
+# multisite: subsites created by --multisite (a number, or names like "shop,blog")
+MULTISITE_SITES=2
+# install the Valet driver that subdirectory multisite needs (into ~/.config/valet/Drivers)
+MULTISITE_DRIVER_AUTOINSTALL=1
+
 # demo data imported into every new site: "", "unittest", "woo" or "all"
 DEFAULT_DEMO=""
 DEMO_IMAGES=1                  # 0 = skip demo images (faster, works offline)
