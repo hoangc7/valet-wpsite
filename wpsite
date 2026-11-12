@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-VERSION="1.1.1"
+VERSION="1.1.2"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wpsite"
 CONFIG_FILE="$CONFIG_DIR/config"
 MARKER=".wpsite"   # every site this script creates gets this file; delete refuses folders without it
@@ -75,16 +75,21 @@ require() {
   ensure_mysql_client
 }
 
+# client + check tool, under MySQL or MariaDB names (WP-CLI 2.12+ uses either)
+has_sql_client() { { has mysql || has mariadb; } && { has mysqlcheck || has mariadb-check; }; }
+dir_has_sql_client() { [[ -x "$1/mysql" || -x "$1/mariadb" ]] && [[ -x "$1/mysqlcheck" || -x "$1/mariadb-check" ]]; }
+sql_client() { if has mysql; then echo mysql; else echo mariadb; fi; }
+
 # WP-CLI's db commands shell out to `mysql` / `mysqlcheck` found on PATH. If they're
 # missing it runs `/usr/bin/env --no-defaults …` and fails with "env: illegal option -- n".
 # Keg-only Homebrew installs, DBngin and the official installer don't put them on PATH,
 # so look in the usual places and add the first match for this run.
 ensure_mysql_client() {
   if [[ -n "$MYSQL_BIN_DIR" ]]; then
-    [[ -x "${MYSQL_BIN_DIR/#\~/$HOME}/mysql" ]] || die "MYSQL_BIN_DIR is set but has no mysql binary: $MYSQL_BIN_DIR"
+    dir_has_sql_client "${MYSQL_BIN_DIR/#\~/$HOME}" || die "MYSQL_BIN_DIR is set but has no mysql/mariadb client: $MYSQL_BIN_DIR"
     PATH="${MYSQL_BIN_DIR/#\~/$HOME}:$PATH"; export PATH
   fi
-  has mysql && has mysqlcheck && return 0
+  has_sql_client && return 0
 
   local d
   for d in \
@@ -94,16 +99,17 @@ ensure_mysql_client() {
     /usr/local/opt/mysql-client@*/bin /usr/local/opt/mariadb/bin /usr/local/opt/mariadb@*/bin \
     /usr/local/mysql/bin /Users/Shared/DBngin/mysql/*/bin /Users/Shared/DBngin/mariadb/*/bin \
     "$HOME"/Library/Application\ Support/Herd/bin /Applications/MAMP/Library/bin; do
-    if [[ -x "$d/mysql" && -x "$d/mysqlcheck" ]]; then
+    if dir_has_sql_client "$d"; then
       PATH="$d:$PATH"; export PATH
       info "Using MySQL client from $d ${c_dim}(set MYSQL_BIN_DIR to choose another)${c_0}"
       return 0
     fi
   done
 
-  die "MySQL client ('mysql' and 'mysqlcheck') not found on PATH — WP-CLI needs it to create databases.
+  die "MySQL/MariaDB client ('mysql' + 'mysqlcheck', or 'mariadb' + 'mariadb-check') not found on PATH — WP-CLI needs it to create databases.
   Fix one of:
-    • Homebrew:  brew link --force mysql@8.4      (or: brew install mysql-client)
+    • No database installed?  brew install mariadb   (or: brew install mysql)
+    • Homebrew keg-only:  brew link --force mysql@8.4
     • or add its bin folder to PATH in ~/.zshrc
     • or set MYSQL_BIN_DIR in $CONFIG_FILE, e.g. MYSQL_BIN_DIR=\"/opt/homebrew/opt/mysql@8.4/bin\""
 }
@@ -599,8 +605,8 @@ cmd_delete() {
   if has wp; then ensure_mysql_client; fi
   if has wp && [[ -f "$SITE_DIR/wp-config.php" ]]; then
     wp --path="$SITE_DIR" db drop --yes --quiet 2>/dev/null || warn "Could not drop $db (already gone?)"
-  elif has mysql; then
-    MYSQL_PWD="$DB_PASS" mysql -u"$DB_USER" -h"$DB_HOST" -e "DROP DATABASE IF EXISTS \`$db\`;" || warn "Could not drop $db"
+  elif has_sql_client; then
+    MYSQL_PWD="$DB_PASS" "$(sql_client)" -u"$DB_USER" -h"$DB_HOST" -e "DROP DATABASE IF EXISTS \`$db\`;" || warn "Could not drop $db"
   fi
 
   info "Removing files…"

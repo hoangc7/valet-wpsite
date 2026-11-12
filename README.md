@@ -56,18 +56,55 @@ Inspired by [ValetPress](https://github.com/sdenike/valetpress) by Shelby DeNike
 | --- | --- |
 | [Laravel Valet](https://laravel.com/docs/valet) | macOS. [Valet Linux](https://cpriego.github.io/valet-linux/) also works. Without Valet, wpsite still builds the site; you just serve the folder yourself. |
 | [WP-CLI](https://wp-cli.org/#installing) | `wp` must be on your `PATH`. |
-| MySQL or MariaDB | Running, with a user that can create and drop databases. The `mysql` and `mysqlcheck` **client** commands are needed too (WP-CLI calls them). wpsite finds them in common keg-only Homebrew, DBngin and MySQL-installer locations; see [Troubleshooting](#troubleshooting). |
+| MySQL or MariaDB | Running, with a user that can create and drop databases (see [Database setup](#database-setup)). The client commands are needed too (`mysql` + `mysqlcheck`, or `mariadb` + `mariadb-check` with WP-CLI 2.12+). wpsite finds them in common keg-only Homebrew, DBngin and MySQL-installer locations; see [Troubleshooting](#troubleshooting). |
 | `curl`, `bash` 3.2+ | Preinstalled on macOS and Linux. |
 
 Quick setup on macOS with Homebrew:
 
 ```bash
-brew install php mysql wp-cli composer
-brew services start mysql
+brew install php wp-cli composer
 composer global require laravel/valet
 valet install
 mkdir -p ~/Sites && cd ~/Sites && valet park
 ```
+
+Then set up a database server, as described below.
+
+### Database setup
+
+Pick the server your production sites run. Matching production avoids surprises when you move databases between local and live. For example, MySQL 8's default `utf8mb4_0900_ai_ci` collation doesn't exist in MariaDB, so a dump from local MySQL fails to import on a MariaDB host. You don't need DBngin or any GUI; Homebrew is enough.
+
+**MariaDB**
+
+```bash
+brew install mariadb
+brew services start mariadb
+```
+
+Homebrew's MariaDB lets `root` (and your macOS user) log in only through the local socket, as that same system user, so wpsite's default `root` over `127.0.0.1` is rejected. Create a dev user once:
+
+```bash
+mariadb -e "CREATE USER 'wp'@'localhost' IDENTIFIED BY 'wp'; GRANT ALL PRIVILEGES ON *.* TO 'wp'@'localhost'; FLUSH PRIVILEGES;"
+```
+
+and set it in `wpsite config`:
+
+```bash
+DB_USER="wp"
+DB_PASS="wp"
+DB_HOST="localhost"     # use the local socket
+```
+
+**MySQL**
+
+```bash
+brew install mysql
+brew services start mysql
+```
+
+`root` with no password on `127.0.0.1` works out of the box, matching wpsite's defaults, so no config changes are needed.
+
+Check either one with `wpsite create test && wpsite delete test -y`.
 
 ## Installation
 
@@ -375,8 +412,11 @@ bash -x wpsite create debug-site
 
 ## Troubleshooting
 
+**`Access denied for user 'root'@'localhost'` with MariaDB.**
+Homebrew's MariaDB doesn't allow password-less `root` over TCP. Create a dev user; see [Database setup](#database-setup).
+
 **`env: illegal option -- n` (or `env: 'mysql': No such file or directory`) at "Creating database".**
-The MySQL server may be running fine, but its `mysql` client command isn't on your `PATH`. WP-CLI looks it up with `which mysql`, and when that fails it runs `/usr/bin/env --no-defaults …`, which macOS's `env` rejects. This is common with keg-only Homebrew formulas (`mysql@8.0`, `mysql@8.4`, `mysql-client`), DBngin and the official MySQL installer.
+Either no database server is installed (see [Database setup](#database-setup)), or the server is running but its `mysql` client command isn't on your `PATH`. WP-CLI looks it up with `which mysql`, and when that fails it runs `/usr/bin/env --no-defaults …`, which macOS's `env` rejects. This is common with keg-only Homebrew formulas (`mysql@8.0`, `mysql@8.4`, `mysql-client`), DBngin and the official MySQL installer.
 
 wpsite checks the usual locations automatically (`/opt/homebrew/opt/mysql*/bin`, `/usr/local/opt/mysql*/bin`, `/usr/local/mysql/bin`, DBngin, MAMP) and prints `Using MySQL client from …` when it finds one. If it still can't find one, pick one fix:
 

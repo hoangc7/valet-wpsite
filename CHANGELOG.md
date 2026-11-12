@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2 — 2026-11-12
+
+- Accept MariaDB's own client names (`mariadb` + `mariadb-check`), used by WP-CLI 2.12+, not only `mysql` + `mysqlcheck`.
+- Docs: new Database setup section (MariaDB and MySQL via Homebrew, dev user for MariaDB).
+
 ## 1.1.1 — 2026-11-12
 
 - Fix: `create` failing with `env: illegal option -- n` when the `mysql` client isn't on `PATH`. wpsite now finds it in common Homebrew (keg-only), DBngin, MAMP and MySQL-installer locations, or uses `MYSQL_BIN_DIR`.
