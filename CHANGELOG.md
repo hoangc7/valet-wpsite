@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.4 — 2026-11-12
+
+- `--multisite` no longer creates subsites by default (`MULTISITE_SITES=0`). Use `--sites=2` or `--sites=shop,blog` to add them.
+
 ## 1.1.3 — 2026-11-12
 
 - Sites no longer need a parked folder: wpsite runs `valet link` for each new site unless `SITES_DIR` is parked (`VALET_LINK=auto|1|0`). `delete` unlinks it.

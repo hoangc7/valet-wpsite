@@ -21,7 +21,7 @@ set -euo pipefail
 # Must run on macOS's bash 3.2: no bash 4+ features, write "${var}…" (not "$var…")
 # before non-ASCII text, and expand possibly-empty arrays as ${a[@]+"${a[@]}"}.
 
-VERSION="1.1.3"
+VERSION="1.1.4"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wpsite"
 CONFIG_FILE="$CONFIG_DIR/config"
 MARKER=".wpsite"   # every site this script creates gets this file; delete refuses folders without it
@@ -49,7 +49,7 @@ DEFAULT_DEMO=""                  # demo data for every new site: unittest, woo, 
 DEMO_IMAGES=1                    # 0 = skip image attachments (much faster import)
 MYSQL_BIN_DIR=""                 # folder with mysql/mysqlcheck if they aren't on PATH (auto-detected)
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wpsite"
-MULTISITE_SITES=2                # subsites created with --multisite (number or "a,b,c"; 0 = none)
+MULTISITE_SITES=0                # subsites created with --multisite (0 = none, a number, or "a,b,c")
 MULTISITE_DRIVER_AUTOINSTALL=1   # install the Valet driver needed for subdirectory multisite
 MULTISITE_DRIVER_URL="https://raw.githubusercontent.com/hoangc7/WordPressMultisiteSubdirectoryValetDriver/master/WordPressMultisiteSubdirectoryValetDriver.php"
 VALET_HOME="$HOME/.config/valet"
@@ -696,8 +696,8 @@ DEFAULT_PLUGINS="query-monitor"
 # extra plugins only for `--woo` sites
 WOO_PLUGINS=""
 
-# multisite: subsites created by --multisite (a number, or names like "shop,blog")
-MULTISITE_SITES=2
+# multisite: subsites created by --multisite (0 = none, a number, or names like "shop,blog")
+MULTISITE_SITES=0
 # install the Valet driver that subdirectory multisite needs (into ~/.config/valet/Drivers)
 MULTISITE_DRIVER_AUTOINSTALL=1
 

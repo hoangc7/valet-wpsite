@@ -162,7 +162,7 @@ git -C ~/.valet-wpsite pull
 | `WOO_PLUGINS` | *(empty)* | Extra plugins installed only on WooCommerce sites. |
 | `DEFAULT_DEMO` | *(empty)* | Demo data for every new site: `unittest`, `woo` or `all`. |
 | `DEMO_IMAGES` | `1` | `0` = skip demo images by default. |
-| `MULTISITE_SITES` | `2` | Subsites created with `--multisite`: a number (`site1`, `site2`…) or names (`"shop,blog"`). `0` = none. |
+| `MULTISITE_SITES` | `0` | Subsites created with `--multisite`: `0` = none, a number (`site1`, `site2`…) or names (`"shop,blog"`). |
 | `MULTISITE_DRIVER_AUTOINSTALL` | `1` | Install the Valet driver that subdirectory multisite needs, if it's missing. `0` = only warn. |
 | `LINK_PLUGINS` | *(empty)* | Space-separated local plugin folders symlinked into every site. |
 | `LINK_THEMES` | *(empty)* | Space-separated local theme folders symlinked into every site. |
@@ -310,15 +310,15 @@ Re-running an import on the same site is safe: the importer skips posts that alr
 ## Multisite
 
 ```bash
-wpsite create network --multisite                         # subdirectory: network.test/site1/, network.test/site2/
+wpsite create network --multisite                         # just the network (main site), no subsites
+wpsite create network --multisite --sites=2               # subdirectory: network.test/site1/, network.test/site2/
 wpsite create network --multisite=subdomain --sites=shop,blog   # subdomain: shop.network.test, blog.network.test
-wpsite create network --multisite --sites=0               # just the network, no subsites
 ```
 
 What you get:
 
 - A network installed with `wp core multisite-install`, so `MULTISITE`, `SUBDOMAIN_INSTALL` and related constants are written to `wp-config.php`.
-- Subsites from `--sites` (default `MULTISITE_SITES=2`: `site1`, `site2`), each with the main site's theme, pretty permalinks, search engines discouraged, and default content removed.
+- Subsites only if you ask for them with `--sites` (or set `MULTISITE_SITES`), each with the main site's theme, pretty permalinks, search engines discouraged, and default content removed.
 - Plugins (`--plugins`, `DEFAULT_PLUGINS`, `LINK_PLUGINS`, WooCommerce) are **network-activated**. The theme is network-enabled and activated on every subsite.
 - `--secure` covers the whole network. Valet's certificate includes `*.network.test`, and subsite URLs are switched to `https://`.
 - The summary prints the Network Admin URL and every subsite URL. `wpsite list` marks the site as `[multisite: subdirectory]` or `[multisite: subdomain]`.

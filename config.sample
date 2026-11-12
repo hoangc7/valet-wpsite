@@ -27,8 +27,8 @@ DEFAULT_PLUGINS="query-monitor"
 # extra plugins only for `--woo` sites
 WOO_PLUGINS=""
 
-# multisite: subsites created by --multisite (a number, or names like "shop,blog")
-MULTISITE_SITES=2
+# multisite: subsites created by --multisite (0 = none, a number, or names like "shop,blog")
+MULTISITE_SITES=0
 # install the Valet driver that subdirectory multisite needs (into ~/.config/valet/Drivers)
 MULTISITE_DRIVER_AUTOINSTALL=1
 
