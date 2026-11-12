@@ -73,14 +73,14 @@ Clone the repo, then symlink the script into any folder that's already on your `
 
 ```bash
 git clone https://github.com/hoangc7/valet-wpsite.git ~/.valet-wpsite
-ln -s ~/.valet-wpsite/wpsite ~/bin/wpsite        # or ~/.home/bin, /usr/local/bin, …
+mkdir -p ~/.local/bin
+ln -s ~/.valet-wpsite/wpsite ~/.local/bin/wpsite   # or any other folder on your PATH
 ```
 
-No folder on your `PATH` yet? Create one and add it to `~/.zshrc` or `~/.bashrc`:
+If `wpsite` isn't found, `~/.local/bin` isn't on your `PATH` yet (macOS doesn't add it by default). Add it to `~/.zshrc` or `~/.bashrc`:
 
 ```bash
-mkdir -p ~/bin
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
 Check it works with `wpsite --version`. A symlink (rather than a copy) means updates arrive with a `git pull`.
@@ -344,7 +344,7 @@ Export `WP_CLI_ALLOW_ROOT=1`.
 ## Uninstall
 
 ```bash
-rm ~/bin/wpsite                     # wherever you linked it
+rm ~/.local/bin/wpsite              # wherever you linked it
 rm -rf ~/.valet-wpsite ~/.config/wpsite ~/.cache/wpsite
 ```
 
