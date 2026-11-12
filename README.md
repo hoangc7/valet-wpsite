@@ -42,7 +42,7 @@ Inspired by [ValetPress](https://github.com/sdenike/valetpress) by Shelby DeNike
 - **One command to a working site:** downloads WordPress, creates the database, installs, sets permalinks and opens wp-admin.
 - **WooCommerce ready:** `--woo` installs WooCommerce and skips the onboarding wizard and "coming soon" mode.
 - **Demo data:** the WordPress Theme Unit Test data and/or WooCommerce sample products, with images or without.
-- **Plugin/theme development:** your local source folders are symlinked (not copied) into every new site, so one checkout is tested across many sites.
+- **Plugin/theme development:** your local source folders, single ones or a whole folder of them, are symlinked (not copied) into every new site, so one checkout is tested across many sites.
 - **Multisite:** `--multisite` builds a subdirectory or subdomain network with test subsites, and sets up the Valet driver it needs.
 - **Per-site PHP:** `--php=8.2` runs `valet isolate` for that site only.
 - **HTTPS:** `--secure` runs `valet secure`; delete removes the certificate.
@@ -166,6 +166,8 @@ git -C ~/.valet-wpsite pull
 | `MULTISITE_DRIVER_AUTOINSTALL` | `1` | Install the Valet driver that subdirectory multisite needs, if it's missing. `0` = only warn. |
 | `LINK_PLUGINS` | *(empty)* | Space-separated local plugin folders symlinked into every site. |
 | `LINK_THEMES` | *(empty)* | Space-separated local theme folders symlinked into every site. |
+| `LINK_PLUGINS_DIR` | *(empty)* | Folder(s) of plugins. Every plugin inside is symlinked into every site (not activated). |
+| `LINK_THEMES_DIR` | *(empty)* | Folder(s) of themes. Every theme inside is symlinked into every site. |
 
 Advanced (rarely needed):
 
@@ -348,14 +350,29 @@ With `--url`, WooCommerce is activated only on that subsite (unless it's already
 
 ## Developing plugins and themes
 
-Point `LINK_PLUGINS` / `LINK_THEMES` at your working copies:
+Point wpsite at your working copies, either one by one or a whole folder at a time:
 
 ```bash
+# individual plugins/themes: linked, and plugins are activated
 LINK_PLUGINS="$HOME/Code/my-plugin"
 LINK_THEMES="$HOME/Code/my-theme"
+
+# whole folders: every plugin/theme inside is linked (plugins are NOT activated)
+LINK_PLUGINS_DIR="$HOME/Code/plugins"
+LINK_THEMES_DIR="$HOME/Code/themes"
 ```
 
-Every new site gets a symlink, for example `wp-content/plugins/my-plugin -> ~/Code/my-plugin`, and linked plugins are activated. Edit once and test everywhere: different PHP versions, WordPress versions, with and without WooCommerce, with different demo data.
+Every new site gets a symlink, for example `wp-content/plugins/my-plugin -> ~/Code/my-plugin`. Edit once and test everywhere: different PHP versions, WordPress versions, with and without WooCommerce, with different demo data.
+
+**Folders of plugins and themes**
+
+- Only real plugins and themes are linked. A plugin is a sub-folder with a top-level PHP file containing a `Plugin Name:` header; a theme is a sub-folder whose `style.css` has a `Theme Name:` header. Everything else (`node_modules`, `.git`, loose files, notes) is ignored.
+- Plugins from a folder are **linked but not activated**, because a folder often holds many plugins, sometimes a free and a Pro version that can't be active together. Activate what you need in wp-admin, or also list the plugin you're working on in `LINK_PLUGINS` and it's linked once and activated on every new site.
+- Several folders can be listed, separated by spaces. If two of your folders contain a plugin or theme with the same folder name, the first one wins and the other is skipped with a warning.
+- If one of your plugins or themes has the same name as a copy WordPress ships with (for example, your fork of `twentytwentyfour` or `akismet`), the stock copy on the new site is replaced by your linked one.
+- Only sites created *after* you change these settings get the links. To add a plugin to an existing site, symlink it yourself: `ln -s ~/Code/plugins/new-plugin ~/Sites/<site>/wp-content/plugins/`.
+
+**Your source is never deleted.** wpsite never deletes a symlinked plugin or theme, including during the default-content cleanup. WordPress's own delete would follow the link and erase the files inside, so wpsite skips those. Deleting a site removes the links only.
 
 For a one-off theme, pass a folder to `--theme`:
 
@@ -382,7 +399,7 @@ Deleting things is the risky part of a script like this, so wpsite is deliberate
 - **Strict names:** only `a-z`, `0-9` and `-`. Empty names, `..` and slashes are rejected before anything touches the disk.
 - **No overwrite:** `create` stops if the folder or database already exists, instead of wiping it.
 - **Safe rollback:** if `create` fails, it removes the new folder and drops the database only if this run created it.
-- **Symlinks:** deleting a site removes the links, never your plugin or theme source.
+- **Symlinks:** deleting a site removes the links, never your plugin or theme source. The default-content cleanup also skips anything symlinked.
 
 ## Recipes
 

@@ -21,7 +21,7 @@ set -euo pipefail
 # Must run on macOS's bash 3.2: no bash 4+ features, write "${var}…" (not "$var…")
 # before non-ASCII text, and expand possibly-empty arrays as ${a[@]+"${a[@]}"}.
 
-VERSION="1.1.4"
+VERSION="1.2.0"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wpsite"
 CONFIG_FILE="$CONFIG_DIR/config"
 MARKER=".wpsite"   # every site this script creates gets this file; delete refuses folders without it
@@ -44,6 +44,8 @@ DEFAULT_PLUGINS=""               # space-separated wp.org slugs installed on eve
 WOO_PLUGINS=""                   # extra plugins added only with --woo
 LINK_PLUGINS=""                  # space-separated local plugin dirs to SYMLINK into every site
 LINK_THEMES=""                   # space-separated local theme dirs to SYMLINK into every site
+LINK_PLUGINS_DIR=""              # folder(s) of plugins: every plugin inside is linked (not activated)
+LINK_THEMES_DIR=""               # folder(s) of themes: every theme inside is linked
 WP_DEBUG=1
 DEFAULT_DEMO=""                  # demo data for every new site: unittest, woo, all (or empty)
 DEMO_IMAGES=1                    # 0 = skip image attachments (much faster import)
@@ -316,6 +318,88 @@ cmd_demo() {
   import_demo "$types" "$images" || die "Demo import failed."
 }
 
+# ----------------------------------------------------------- linked code ---
+abs_dir() { (cd "${1/#\~/$HOME}" 2>/dev/null && pwd -P); }
+
+# a folder is a plugin if a top-level PHP file has a "Plugin Name:" header
+is_plugin_dir() {
+  local f
+  for f in "$1"/*.php; do
+    [[ -f "$f" ]] && head -c 8192 "$f" | grep -qi 'Plugin Name:' && return 0
+  done
+  return 1
+}
+is_theme_dir() { [[ -f "$1/style.css" ]] && head -c 8192 "$1/style.css" | grep -qi 'Theme Name:'; }
+
+# symlink $1 into $2 (only used on a brand-new site).
+# returns 0 = linked, 1 = skipped, 2 = already linked to this source
+link_into() {
+  local src="$1" dest="$2" name; name="$(basename "$src")"
+  if [[ -L "$dest/$name" ]]; then
+    [[ "$(readlink "$dest/$name")" == "$src" ]] && return 2
+    # two of your own folders provide the same name — first one wins
+    warn "Skipped $src — ${dest#"$SITE_DIR"/}/$name is already linked to $(readlink "$dest/$name")"
+    return 1
+  fi
+  if [[ -d "$dest/$name" ]]; then
+    # a stock copy that came with this fresh site (e.g. a bundled Twenty* theme) — your code wins
+    rm -rf -- "${dest:?}/$name"
+    info "Replaced bundled $name with your linked copy"
+  elif [[ -e "$dest/$name" ]]; then
+    warn "Skipped $name — ${dest#"$SITE_DIR"/}/$name exists and isn't a folder"
+    return 1
+  fi
+  ln -s "$src" "$dest/$name"
+}
+
+link_code() {
+  local p src rc n dir sub
+  local pdest="$SITE_DIR/wp-content/plugins" tdest="$SITE_DIR/wp-content/themes"
+
+  # single plugins: linked and activated
+  for p in $LINK_PLUGINS; do
+    src="$(abs_dir "$p")" || { warn "LINK_PLUGINS path not found: $p"; continue; }
+    rc=0; link_into "$src" "$pdest" || rc=$?
+    [[ $rc == 1 ]] && continue
+    # shellcheck disable=SC2046
+    wpc plugin activate "$(basename "$src")" $(activate_network_flag) || warn "Could not activate $(basename "$src")"
+    ok "Linked plugin $(basename "$src") (active)"
+  done
+
+  # single themes: linked
+  for p in $LINK_THEMES; do
+    src="$(abs_dir "$p")" || { warn "LINK_THEMES path not found: $p"; continue; }
+    rc=0; link_into "$src" "$tdest" || rc=$?
+    [[ $rc == 0 ]] && ok "Linked theme $(basename "$src")"
+  done
+
+  # folders of plugins: every plugin inside, linked only
+  for dir in $LINK_PLUGINS_DIR; do
+    dir="$(abs_dir "$dir")" || { warn "LINK_PLUGINS_DIR not found: $dir"; continue; }
+    n=0
+    for sub in "$dir"/*/; do
+      sub="${sub%/}"
+      [[ -d "$sub" ]] && is_plugin_dir "$sub" || continue
+      rc=0; link_into "$sub" "$pdest" || rc=$?
+      [[ $rc == 0 ]] && n=$((n + 1))
+    done
+    ok "Linked $n plugin(s) from $dir ${c_dim}(not activated)${c_0}"
+  done
+
+  # folders of themes: every theme inside
+  for dir in $LINK_THEMES_DIR; do
+    dir="$(abs_dir "$dir")" || { warn "LINK_THEMES_DIR not found: $dir"; continue; }
+    n=0
+    for sub in "$dir"/*/; do
+      sub="${sub%/}"
+      [[ -d "$sub" ]] && is_theme_dir "$sub" || continue
+      rc=0; link_into "$sub" "$tdest" || rc=$?
+      [[ $rc == 0 ]] && n=$((n + 1))
+    done
+    ok "Linked $n theme(s) from $dir"
+  done
+}
+
 # --------------------------------------------------------------- multisite ---
 # "site2", "site2.shop.test" or a full URL -> the subsite's URL
 resolve_subsite() {
@@ -474,33 +558,17 @@ cmd_create() {
     wpc plugin install $all_plugins "$(install_activate_flag)"
   fi
 
-  local p
-  for p in $LINK_PLUGINS; do
-    p="${p/#\~/$HOME}"
-    if [[ -d "$p" ]]; then
-      ln -s "$p" "$SITE_DIR/wp-content/plugins/$(basename "$p")"
-      # shellcheck disable=SC2046
-      wpc plugin activate "$(basename "$p")" $(activate_network_flag) || warn "Could not activate $(basename "$p")"
-      ok "Linked plugin $(basename "$p")"
-    else
-      warn "LINK_PLUGINS path not found: $p"
-    fi
-  done
-  for p in $LINK_THEMES; do
-    p="${p/#\~/$HOME}"
-    if [[ -d "$p" ]]; then
-      ln -s "$p" "$SITE_DIR/wp-content/themes/$(basename "$p")"; ok "Linked theme $(basename "$p")"
-    else
-      warn "LINK_THEMES path not found: $p"
-    fi
-  done
+  link_code
 
   if [[ -n "$theme" ]]; then
     info "Installing theme: $theme"
     theme="${theme/#\~/$HOME}"
     if [[ -d "$theme" ]]; then
-      ln -s "$(cd "$theme" && pwd)" "$SITE_DIR/wp-content/themes/$(basename "$theme")"
-      wpc theme activate "$(basename "$theme")"
+      local tsrc trc=0
+      tsrc="$(abs_dir "$theme")"
+      link_into "$tsrc" "$SITE_DIR/wp-content/themes" || trc=$?
+      [[ $trc == 1 ]] && die "Can't link theme $(basename "$tsrc"): a theme with that name already exists"
+      wpc theme activate "$(basename "$tsrc")"
     else
       wpc theme install "$theme" --activate
     fi
@@ -534,12 +602,17 @@ cmd_create() {
   fi
 
   if [[ "$REMOVE_DEFAULTS" == 1 ]]; then
-    wpc plugin delete hello akismet 2>/dev/null || true
+    # never let WordPress delete a symlinked plugin/theme: it would follow the link and erase your source
+    local dp
+    for dp in hello akismet; do
+      [[ -L "$SITE_DIR/wp-content/plugins/$dp" ]] || wpc plugin delete "$dp" 2>/dev/null || true
+    done
     # remove inactive bundled "Twenty*" themes (keeps the active one)
     local t
     # (on multisite, `theme list --status=inactive` lists themes inactive on the main site;
     #  subsites already use the main site's theme, so these are safe to delete)
     for t in $(wpq theme list --status=inactive --field=name 2>/dev/null | grep '^twenty' || true); do
+      [[ -L "$SITE_DIR/wp-content/themes/$t" ]] && continue
       wpc theme delete "$t" || true
     done
     wpc post delete 1 --force 2>/dev/null || true          # "Hello world!"
@@ -709,6 +782,12 @@ DEMO_IMAGES=1                  # 0 = skip demo images (faster, works offline)
 # e.g. LINK_PLUGINS="$HOME/Code/my-plugin $HOME/Code/another-plugin"
 LINK_PLUGINS=""
 LINK_THEMES=""
+
+# whole folders: every plugin/theme inside is symlinked into every site.
+# Folder plugins are NOT activated (activate in wp-admin, or also list one in LINK_PLUGINS).
+# e.g. LINK_PLUGINS_DIR="$HOME/Code/plugins"
+LINK_PLUGINS_DIR=""
+LINK_THEMES_DIR=""
 EOF
     ok "Created $CONFIG_FILE"
   fi

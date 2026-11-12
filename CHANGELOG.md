@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 — 2026-11-12
+
+- `LINK_PLUGINS_DIR` / `LINK_THEMES_DIR`: link every plugin/theme inside a folder (detected by their `Plugin Name:` / `Theme Name:` headers). Folder plugins are linked, not activated.
+- Your linked copy replaces a same-named stock plugin/theme that ships with WordPress; if two of your own folders clash, the first wins and the other is skipped with a warning.
+- Safety: the default-content cleanup no longer deletes a symlinked plugin or theme (WordPress would follow the link and erase the source files).
+- A theme passed to `--theme=<dir>` that's already linked via `LINK_THEMES_DIR` no longer aborts the create.
+
 ## 1.1.4 — 2026-11-12
 
 - `--multisite` no longer creates subsites by default (`MULTISITE_SITES=0`). Use `--sites=2` or `--sites=shop,blog` to add them.

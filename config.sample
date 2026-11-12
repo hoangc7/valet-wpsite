@@ -40,3 +40,9 @@ DEMO_IMAGES=1                  # 0 = skip demo images (faster, works offline)
 # e.g. LINK_PLUGINS="$HOME/Code/my-plugin $HOME/Code/another-plugin"
 LINK_PLUGINS=""
 LINK_THEMES=""
+
+# whole folders: every plugin/theme inside is symlinked into every site.
+# Folder plugins are NOT activated (activate in wp-admin, or also list one in LINK_PLUGINS).
+# e.g. LINK_PLUGINS_DIR="$HOME/Code/plugins"
+LINK_PLUGINS_DIR=""
+LINK_THEMES_DIR=""
